@@ -211,7 +211,7 @@ import librosa.display
 #         print(str(index + DecibelMIN) + " dB")
 #         break
 # else: print("Такой доверительности не существует")
-file = '85.wav'
+file = 'Чириков_ZT-333_208_35_2022_08_22.wav'
 y, sr = librosa.load(file)
 y = abs(y)
 # fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
