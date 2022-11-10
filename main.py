@@ -6,183 +6,142 @@ import wave
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
+import tkinter as tk
+from tkinter import *
+import re
 
-# D = []
-# Deci = []
-# Z = []
-# norm = []
-# M = 1024
-# audio = 'sin1000.wav'
-# snd, sampFreq = librosa.load(audio)
-#
-#
-# snd = snd / (2.**15) #Convert sound array to floating point values
-#                      #Floating point values range from -1 to 1
-#
-# s1 = snd #left channel
-#
-# timeArray = np.arange(0, len(snd) + 1, 2)
-# timeArray = timeArray / sampFreq
-# timeArray = timeArray * 1000   #scale to milliseconds
-# print(len(timeArray))
-#
-#
-# n = len(s1)
-# p = fft(s1) # take the fourier transform
-# print(len(p))
-#
-# nUniquePts = math.ceil((n+1)/2)
-# p = p[0:nUniquePts]
-# p = abs(p)
-# print(len(p))
-#
-#
-# '''
-# Left Channel
-# '''
-# p = p / float(n) # scale by the number of points so that
-#              # the magnitude does not depend on the length
-#              # of the signal or on its sampling frequency
-# p = p**2  # square it to get the power
-#
-#
-#
-# if n % 2 > 0: # we've got odd number of points fft
-#     p[1:len(p)] = p[1:len(p)] * 2
-# else:
-#     p[1:len(p) -1] = p[1:len(p) - 1] * 2 # we've got even number of points fft
-# F = 10 * np.log10(p)
-# print(len(F))
-# print(len(timeArray))
-# plt.plot(timeArray , F, 'k')
-# plt.xlabel('Frequency (kHz)')
-# plt.ylabel('Power (dB)')
-# plt.show()
-# time = math.floor(len(snd) / sampFreq) * 8
-# startMass = 0
-# while (time > 0):
-#     D.append(np.abs(round(F[startMass * 2935 + 44: (startMass + 1) * 2935].sum() / 2935 * 32767)))
-#     time = time - 1
-#     startMass += 1
-# D = np.around(D)
-# DecibelMAX = np.max(D)
-# DecibelMIN = np.min(D)
-# print(len(D))
-# for i in range(len(F)):
-#     print(F[i])
-# renges = 0
-# Gistoram = []
-# i = 0
-# iterat = 0
-# while renges <= DecibelMAX - DecibelMIN:
-#     for i in D:
-#         if DecibelMIN + renges == i:
-#             iterat += 1
-#     Gistoram.append(iterat)
-#     iterat = 0
-#     renges +=1
-# relProb = [ ]
-# for i in Gistoram:
-#     relProb.append(float("{0:.5f}".format(i/ sum(Gistoram))))
-# probab = 0
-# finalyMass = []
-# for i in relProb:
-#     finalyMass.append(probab + i)
-#     probab = probab + i
-# userProb = float(input("Введите доверительную вероятность: "))
-# for index in range(len(finalyMass)):
-#     if finalyMass[index] > userProb:
-#         print(str(index + DecibelMIN) + " dB")
-#         break
-# else: print("Такой доверительности не существует")
+mainWindow = Tk()
+
+mainWindow['bg'] = '#AFEEEE'
+mainWindow.title('Доверительная программа')
+mainWindow.geometry('300x300')
+mainWindow.resizable(width=False, height=False)
+
+file = 'Чириков_ZT-333_208_35_2022_08_22.wav'
+y, sr = librosa.load(file)
+y = abs(y)
+S = np.abs(librosa.stft(y))
+fileLoad = False
+finalyMass = []
+DecibelMIN = 0
+def openPowerSpec():
+    fig, ax = plt.subplots()
+    img = librosa.display.specshow(librosa.amplitude_to_db(S, ref=np.max, top_db=None), y_axis='log', x_axis='time', ax=ax)
+    ax.set_title('Power spectrogram')
+    fig.colorbar(img, ax=ax, format="%+2.0f dB")
+    plt.show()
+
+def openFile():
+    global fileLoad, finalyMass, DecibelMIN
+    fileLoad = False
+    finalyMass = []
+    DecibelMIN = 0
+    foldername = tk.filedialog.askdirectory()
+    print(foldername)
+
+def is_valid(newval):
+    re.match("^\d{0,1}\.{0,1}\d{0,2}$", newval) is not None
 
 
+def audioSpec():
+    fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
+    librosa.display.waveshow(y, sr=sr, ax=ax)
+    ax.set(title='Monophonic')
+    ax.label_outer()
+    plt.show()
+def probabFunc():
+    global fileLoad, DecibelMIN, finalyMass
+    userProb = (float)(userProbTF.get())
+    if fileLoad == False:
+        Db = librosa.amplitude_to_db(S, ref=np.max, top_db=None)
+        print(np.max(Db), " ", np.min(Db))
+        print(np.shape(Db))
+        print(len(Db))
+        clearDB = []
+        summar = 0
+        for i in range(len(Db[1])):
+            for z in range(len(Db)):
+                summar += Db[z][i] / 1025
+            print(summar)
+            clearDB.append(round(abs(summar)))
+            summar = 0
+        D = clearDB
+        D.sort()
+        DecibelMAX = np.max(D)
+        DecibelMIN = np.min(D)
+        renges = 0
+        Gistoram = []
+        i = 0
+        iterat = 0
+        while renges <= DecibelMAX - DecibelMIN:
+            for i in D:
+                if DecibelMIN + renges == i:
+                    iterat += 1
+            Gistoram.append(iterat)
+            iterat = 0
+            renges += 1
+        relProb = []
+        for i in Gistoram:
+            relProb.append(float("{0:.5f}".format(i / sum(Gistoram))))
+        probab = 0
+        for i in relProb:
+            finalyMass.append(probab + i)
+            probab = probab + i
+        fileLoad = True
+    for index in range(len(finalyMass)):
+        if finalyMass[index] > userProb:
+            textProb["text"] = "Доверительная громкость: " + str(index + DecibelMIN) + " dB"
+            print(str(index + DecibelMIN) + " dB")
+            break
+    else:
+        print("Такой доверительности не существует")
 
 
 
+check = (mainWindow.register(is_valid), "%P")
+
+canvas = Canvas(mainWindow, height=300, width= 300)
+canvas.pack()
+frame = Frame(mainWindow, bg='#ADD8E6')
+frame.place(relx=0.025, rely=0.025, relheight=0.95, relwidth=0.95)
+btn = Button(frame, text='Open File', command=openFile)
+btn.pack(anchor="nw", padx=5, pady=5)
+textProb = Label(frame, text='Введите доверительную вероятность:', bg='#ADD8E6')
+textProb.pack(anchor="w", padx=5)
+userProbTF = Entry(frame, validatecommand=check, validate="key")
+userProbTF.pack(anchor="w", padx=5)
+textProb = Label(frame, bg='#ADD8E6')
+textProb.pack(anchor="w", padx=5)
+btn = Button(frame, text='Спектр аудиофайла', command=audioSpec)
+btn.pack(anchor="w", padx=5, pady=15)
+btn = Button(frame, text='Спектрограмма аудиофайла', command=openPowerSpec)
+btn.pack(anchor="w", padx=5)
+btn = Button(frame, text='Какой-то грапфик')
+btn.pack(anchor="w", padx=5, pady=15)
+btn = Button(frame, text='Рассчитать', command=probabFunc)
+btn.pack(anchor="se", padx=5, pady=15)
 
 
 
+mainWindow.mainloop()
 
 
-
-
-# wav_obj = wave.open(audio, 'rb')
-# n_samples = wav_obj.getframerate()
-# signal_wave = wav_obj.readframes(n_samples)
-# signal_array = np.frombuffer(signal_wave, dtype=np.int8)
-# print(signal_array)
-# a = signal_array.T[0]
-# audio, mass = wf.read(audio)
-# time = math.floor(mass.shape[0] / audio) * 8
-# startMass = 0
-# while (time > 0):
-#     D.append(np.abs(round(mass[startMass * 2935 + 44: (startMass + 1) * 2935].sum() / 2935 * 32767)))
-#     time = time - 1
-#     startMass += 1
-# # a = norm.T[0]
-# # b=[(ele/2**16.)*2-1 for ele in a]
-# # c = rfft(mass)
-# # S = np.abs(c)
-# # dlin = (len(S) / 2935) - 1
-# # startMass = 0
-# # while (dlin > 0):
-# #     D.append(round(S[startMass * 2935 + 44: (startMass + 1) * 2935].sum() / 2935))
-# #     dlin = dlin - 1
-# #     startMass += 1
-# # D = np.abs(D)
-# for index in range(len(D)):
-#     if( D[index] > 0):
-#         D[index] = 20 * np.log10(D[index]/np.max(D))
-#         D[index] = round(D[index])
-# D = np.abs(D)
-# DecibelMAX = np.max(D)
-# print(DecibelMAX)
-# DecibelMIN = np.min(D)
-# print(DecibelMIN)
-# renges = 0
-# Gistoram = []
-# i = 0
-# iterat = 0
-# while renges <= DecibelMAX - DecibelMIN:
-#     for i in D:
-#         if DecibelMIN + renges == i:
-#             iterat += 1
-#     Gistoram.append(iterat)
-#     iterat = 0
-#     renges +=1
-# relProb = [ ]
-# for i in Gistoram:
-#     relProb.append(float("{0:.5f}".format(i/ sum(Gistoram))))
-# probab = 0
-# finalyMass = []
-# for i in relProb:
-#     finalyMass.append(probab + i)
-#     probab = probab + i
-# userProb = float(input("Введите доверительную вероятность: "))
-# for index in range(len(finalyMass)):
-#     if finalyMass[index] > userProb:
-#         print(str(index + DecibelMIN) + " dB")
-#         break
-# else: print("Такой доверительности не существует")
-
-
-# D = []
-# Z = []
-# M = 1024
-# audio = 'sin1000.wav'
-# snd, sampFreq = librosa.load(audio)
-# S = np.abs(librosa.stft(snd, hop_length=512))
-# # c = rfft(spec)
-# # S = np.abs(c)
-# S = 20 * np.log10(S / np.max(S))
-# dlin = (len(S) / 2935) - 1
-# startMass = 0
-# while (dlin > 0):
-#     D.append(round(S[startMass * 2935 + 44: (startMass + 1) * 2935].sum() / 2935))
-#     dlin = dlin - 1
-#     startMass += 1
-# D = np.abs(D)
+# Db = librosa.amplitude_to_db(S, ref=np.max, top_db = None)
+# print(np.max(Db), " ", np.min(Db))
+# print(np.shape(Db))
+# print(len(Db))
+# clearDB = []
+# summar = 0
+# for i in range(len(Db[1])):
+#     for z in range(len(Db)):
+#         summar += Db[z][i] / 1025
+#         # if round(srdb) < round(abs(Db[i][z])):
+#         #     clearDB.append(0)
+#         # else:
+#     print(summar)
+#     clearDB.append(round(abs(summar)))
+#     summar = 0
+# D = clearDB
 # D.sort()
 # DecibelMAX = np.max(D)
 # DecibelMIN = np.min(D)
@@ -211,66 +170,6 @@ import librosa.display
 #         print(str(index + DecibelMIN) + " dB")
 #         break
 # else: print("Такой доверительности не существует")
-file = 'Чириков_ZT-333_208_35_2022_08_22.wav'
-y, sr = librosa.load(file)
-y = abs(y)
-# fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
-# librosa.display.waveshow(averagedDB, sr=sr/8, ax=ax)
-# ax.set(title='Monophonic')
-# ax.label_outer()
-# plt.show()
-S = np.abs(librosa.stft(y))
-fig, ax = plt.subplots()
-print(np.max(S), " ", np.min(S))
-srdb = (np.max(S) - np.min(S) )/ 2 + 20
-img = librosa.display.specshow(librosa.amplitude_to_db(S, ref=np.max, top_db = None), y_axis='log', x_axis='time', ax=ax)
-ax.set_title('Power spectrogram')
-fig.colorbar(img, ax=ax, format="%+2.0f dB")
-plt.show()
-Db = librosa.amplitude_to_db(S, ref=np.max, top_db = None)
-print(np.max(Db), " ", np.min(Db))
-print(np.shape(Db))
-print(len(Db))
-clearDB = []
-summar = 0
-for i in range(len(Db[1])):
-    for z in range(len(Db)):
-        summar += Db[z][i] / 1025
-        # if round(srdb) < round(abs(Db[i][z])):
-        #     clearDB.append(0)
-        # else:
-    print(summar)
-    clearDB.append(round(abs(summar)))
-    summar = 0
-D = clearDB
-D.sort()
-DecibelMAX = np.max(D)
-DecibelMIN = np.min(D)
-renges = 0
-Gistoram = []
-i = 0
-iterat = 0
-while renges <= DecibelMAX - DecibelMIN:
-    for i in D:
-        if DecibelMIN + renges == i:
-            iterat += 1
-    Gistoram.append(iterat)
-    iterat = 0
-    renges +=1
-relProb = [ ]
-for i in Gistoram:
-    relProb.append(float("{0:.5f}".format(i/ sum(Gistoram))))
-probab = 0
-finalyMass = []
-for i in relProb:
-    finalyMass.append(probab + i)
-    probab = probab + i
-userProb = float(input("Введите доверительную вероятность: "))
-for index in range(len(finalyMass)):
-    if finalyMass[index] > userProb:
-        print(str(index + DecibelMIN) + " dB")
-        break
-else: print("Такой доверительности не существует")
 
 
 
