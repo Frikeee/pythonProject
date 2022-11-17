@@ -3,139 +3,177 @@ import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 from tkinter import *
-import re
 import os
-from tkinter import filedialog as fd
+import re
 from tkinter import messagebox
-
-mainWindow = Tk()
-
-mainWindow['bg'] = '#AFEEEE'
-mainWindow.title('Доверительная программа')
-mainWindow.geometry('300x300')
-mainWindow.resizable(width=False, height=False)
-
-file = ''
-y = []
-sr = 0
-S = []
-fileLoad = False
-finalyMass = []
-DecibelMIN = 0
-DecibelArr = []
-
-def openPowerSpec():
-    fig, ax = plt.subplots()
-    img = librosa.display.specshow(librosa.amplitude_to_db(S, ref=np.max, top_db=None), y_axis='log', x_axis='time', ax=ax)
-    ax.set_title('Cпектрограмма мощности')
-    fig.colorbar(img, ax=ax, format="%+2.0f dB")
-    ax.set_xlabel("Время")
-    ax.set_ylabel("Герцовка")
-    plt.show()
-
-def openFile():
-    global fileLoad, finalyMass, DecibelMIN, file, S, sr, y
-    fileLoad = False
-    finalyMass = []
-    DecibelMIN = 0
-    name = fd.askopenfilename()
-    file = os.path.basename(name)
-    y, sr = librosa.load(file)
-    y = abs(y)
-    S = np.abs(librosa.stft(y))
-
-def is_valid(newval):
-    re.match("^\d{0,1}\.{0,1}\d{0,2}$", newval) is not None
+from tkinter.filedialog import askopenfilename
+import time
+from threading import *
 
 
-def audioSpec():
-    fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
-    librosa.display.waveshow(y, sr=sr, ax=ax)
-    ax.set(title='Спектр аудиофайла')
-    ax.set_xlabel("Время")
-    ax.set_ylabel("Амплитуда")
-    ax.label_outer()
-    plt.show()
-def probabFunc():
-    global fileLoad, DecibelMIN, finalyMass, DecibelArr
-    userProb = (float)(userProbTF.get())
-    if fileLoad == False:
-        Db = librosa.amplitude_to_db(S, ref=np.max, top_db=None)
-        clearDB = []
-        summar = 0
-        for i in range(len(Db[1])):
-            for z in range(len(Db)):
-                summar += Db[z][i] / 1025
-            clearDB.append(round(abs(summar)))
+class Probability():
+    """Рассчёт доврительной вероятности"""
+    def __init__(self):
+        self.file = ''
+        self.y = []
+        self.sr = 0
+        self.S = []
+        self.fileLoad = False
+        self.finalyMass = []
+        self.DecibelMIN = 0
+        self.DecibelArr = []
+        self.DoLoading = False
+    def FFT(self, filename):
+        """Рассчёт Фурье"""
+        self.y, self.sr = librosa.load(filename)
+        self.y = abs(self.y)
+        self.S = np.abs(librosa.stft(self.y))
+    def openFile(self):
+        """
+        Открытие файла в программу
+        """
+        self.__init__()
+        self.fileLoad = False
+        self.DecibelMIN = 0
+        filename = askopenfilename()
+        self.loading()
+        file = os.path.basename(filename)
+        print(file)
+        self.FFT(filename)
+        self.loading_stop()
+    def openPowerSpec(self):
+        """График спектрограммы мощности"""
+        fig, ax = plt.subplots()
+        img = librosa.display.specshow(librosa.amplitude_to_db(self.S, ref=np.max, top_db=None), y_axis='log', x_axis='time',
+                                       ax=ax)
+        ax.set_title('Cпектрограмма мощности')
+        fig.colorbar(img, ax=ax, format="%+2.0f dB")
+        ax.set_xlabel("Время")
+        ax.set_ylabel("Герц")
+        plt.show()
+
+    def is_valid(self,newval):
+        """Проверка написания доверительной вероятности"""
+        return re.match("^\d{0,1}\.{0,1}\d{0,2}$", newval) is not None
+
+    def audioSpec(self):
+        """Постройка временной диаграммы файла"""
+        fig, ax = plt.subplots(nrows=1, sharex=True, sharey=True)
+        librosa.display.waveshow(self.y, sr=self.sr, ax=ax)
+        ax.set(title='Спектр аудиофайла')
+        ax.set_xlabel("Время")
+        ax.set_ylabel("Амплитуда")
+        ax.label_outer()
+        plt.show()
+
+    def probabFunc(self):
+        """Высчитывание доверительной информации"""
+        userProb = (float)(userProbTF.get())
+        if self.fileLoad == False:
+            Db = librosa.amplitude_to_db(self.S, ref=np.max, top_db=None)
+            clearDB = []
             summar = 0
-        D = clearDB
-        D.sort()
-        DecibelMAX = np.max(D)
-        DecibelMIN = np.min(D)
-        renges = 0
-        Gistoram = []
-        iterat = 0
-        DecibelArr = []
-        for i in range(DecibelMAX - DecibelMIN + 1):
-            DecibelArr.append(DecibelMIN + i)
-        while renges <= DecibelMAX - DecibelMIN:
-            for i in D:
-                if DecibelMIN + renges == i:
-                    iterat += 1
-            Gistoram.append(iterat)
+            for i in range(len(Db[1])):
+                for z in range(len(Db)):
+                    summar += Db[z][i] / 1025
+                clearDB.append(round(abs(summar)))
+                summar = 0
+            D = clearDB
+            D.sort()
+            DecibelMAX = np.max(D)
+            self.DecibelMIN = np.min(D)
+            renges = 0
+            Gistoram = []
             iterat = 0
-            renges += 1
-        relProb = []
-        for i in Gistoram:
-            relProb.append(float("{0:.5f}".format(i / sum(Gistoram))))
-        probab = 0
-        for i in relProb:
-            finalyMass.append(probab + i)
-            probab = probab + i
-        fileLoad = True
-    for index in range(len(finalyMass)):
-        if finalyMass[index] > userProb:
-            textProb["text"] = "Доверительная громкость: " + str(index + DecibelMIN) + " dB"
-            break
-    else: messagebox.showerror(title='Некорректные данные', message='Проверьте пожалуйста введённое значение доверительной вероятности. \nФормат ввода: "x.xx" , где x - цифра. ')
+            for i in range(DecibelMAX - self.DecibelMIN + 1):
+                self.DecibelArr.append(self.DecibelMIN + i)
+            while renges <= DecibelMAX - self.DecibelMIN:
+                for i in D:
+                    if self.DecibelMIN + renges == i:
+                        iterat += 1
+                Gistoram.append(iterat)
+                iterat = 0
+                renges += 1
+            print(Gistoram)
+            prevValue = 0
+            for i in Gistoram:
+                prevValue = prevValue + i / sum(Gistoram)
+                self.finalyMass.append(float("{0:.5f}".format(prevValue)))
+            print(self.finalyMass)
+            self.fileLoad = True
+        for index in range(len(self.finalyMass)):
+            if self.finalyMass[index] > userProb:
+                textProb["text"] = "Доверительная громкость: " + str(index + self.DecibelMIN) + " dB"
+                break
+        else:
+            messagebox.showerror(title='Некорректные данные',
+                                 message='Проверьте пожалуйста введённое значение доверительной вероятности. \nФормат '
+                                         'ввода: "x.xx" , где x - цифра.\nДиапазон значений от 0.01 до 0.99')
 
-def decibelFunc():
-    global DecibelArr, finalyMass
-    fig, ax = plt.subplots()
-    ax.plot(DecibelArr, finalyMass)
-    ax.set(title='Доверительный спектр')
-    ax.grid(color = 'black', linewidth = 0.5)
-    ax.set_xlabel("Акустическая мощность, Дб")
-    ax.set_ylabel("Доверительная вероятность")
-    ax.label_outer()
-    plt.show()
+    def decibelFunc(self):
+        """Постройка доверительного спектра"""
+        fig, ax = plt.subplots()
+        print(self.DecibelArr)
+        print(self.finalyMass)
+        ax.plot(self.DecibelArr, self.finalyMass)
+        ax.set(title='Доверительный спектр')
+        ax.grid(color='black', linewidth=0.5)
+        ax.set_xlabel("Акустическая мощность, Дб")
+        ax.set_ylabel("Доверительная вероятность")
+        ax.label_outer()
+        plt.show()
 
-check = (mainWindow.register(is_valid), "%P")
+    def dow(self):
+        """Функция имитации загрузки"""
+        while self.DoLoading:
+            textProb["text"] = "Загрузка."
+            time.sleep(1)
+            textProb["text"] = "Загрузка.."
+            time.sleep(1)
+            textProb["text"] = "Загрузка..."
+            time.sleep(1)
+            textProb["text"] = "Загрузка...."
+            time.sleep(1)
+            textProb["text"] = "Успешно загружено"
 
-canvas = Canvas(mainWindow, height=300, width= 300)
-canvas.pack()
-frame = Frame(mainWindow, bg='#ADD8E6')
-frame.place(relx=0.025, rely=0.025, relheight=0.95, relwidth=0.95)
-btn = Button(frame, text='Открыть файл', command=openFile)
-btn.pack(anchor="nw", padx=5, pady=5)
-textProb = Label(frame, text='Введите доверительную вероятность:', bg='#ADD8E6')
-textProb.pack(anchor="w", padx=5)
-userProbTF = Entry(frame, validatecommand=check, validate="key")
-userProbTF.pack(anchor="w", padx=5)
-textProb = Label(frame, bg='#ADD8E6')
-textProb.pack(anchor="w", padx=5)
-btn = Button(frame, text='Спектр аудиофайла', command=audioSpec)
-btn.pack(anchor="w", padx=5, pady=15)
-btn = Button(frame, text='Cпектрограмма мощности', command=openPowerSpec)
-btn.pack(anchor="w", padx=5)
-btn = Button(frame, text='Доверительный спектр', command=decibelFunc)
-btn.pack(anchor="w", padx=5, pady=15)
-btn = Button(frame, text='Рассчитать', command=probabFunc)
-btn.pack(anchor="se", padx=5, pady=15)
+    def loading(self):
+        """Старт загрузки"""
+        self.DoLoading = True
+        Thread(target=self.dow).start()
 
-mainWindow.mainloop()
+    def loading_stop(self):
+        """Окончание загрузки"""
+        self.DoLoading = False
 
-
-
+if __name__ == '__main__':
+    mainWindow = Tk()
+    prob = Probability()
 
 
+
+    mainWindow['bg'] = '#AFEEEE'
+    mainWindow.title('Trust Sound')
+    mainWindow.geometry('300x300')
+    mainWindow.resizable(width=False, height=False)
+    canvas = Canvas(mainWindow, height=300, width=300)
+    canvas.pack()
+    frame = Frame(mainWindow, bg='#ADD8E6')
+    frame.place(relx=0.025, rely=0.025, relheight=0.95, relwidth=0.95)
+    check = (mainWindow.register(prob.is_valid), "%P")
+    btn = Button(frame, text='Открыть файл', command=prob.openFile)
+    btn.pack(anchor="nw", padx=5, pady=5)
+    textProb = Label(frame, text='Введите доверительную вероятность:', bg='#ADD8E6')
+    textProb.pack(anchor="w", padx=5)
+    userProbTF = Entry(frame, validatecommand=check, validate="key")
+    userProbTF.pack(anchor="w", padx=5)
+    textProb = Label(frame, bg='#ADD8E6')
+    textProb.pack(anchor="w", padx=5)
+    btn = Button(frame, text='Спектр аудиофайла', command=prob.audioSpec)
+    btn.pack(anchor="w", padx=5, pady=15)
+    btn = Button(frame, text='Cпектрограмма мощности', command=prob.openPowerSpec)
+    btn.pack(anchor="w", padx=5)
+    btn = Button(frame, text='Доверительный спектр', command=prob.decibelFunc)
+    btn.pack(anchor="w", padx=5, pady=15)
+    btn = Button(frame, text='Рассчитать', command=prob.probabFunc)
+    btn.pack(anchor="se", padx=5, pady=15)
+    mainWindow.mainloop()
